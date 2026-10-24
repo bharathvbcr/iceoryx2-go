@@ -5,8 +5,9 @@ Go Language Binding for Eclipse iceoryx2™
 The package `iox2` wraps the iceoryx2 C API with cgo. Progress is tracked in
 [eclipse-iceoryx/iceoryx2#2104](https://github.com/eclipse-iceoryx/iceoryx2/issues/2104).
 
-> **Status:** early development. Creating a `Node` and publish-subscribe
-> communication of bytes or fixed-size values are available so far.
+> **Status:** early development. Creating a `Node`, publish-subscribe
+> communication of bytes or fixed-size values and event notification are
+> available so far.
 
 ## Requirements
 
@@ -94,6 +95,45 @@ func main() {
 
 A service without `Payload` transmits byte slices of any length with
 `Publisher.Send` and `Subscriber.Receive`.
+
+### Events
+
+An event service wakes up other processes or goroutines without transmitting
+data. A `Notifier` sends event ids, a `Listener` waits for them:
+
+```go
+service, err := node.Event("Sensors/Reading/Ready").OpenOrCreate()
+if err != nil {
+	log.Fatal(err)
+}
+defer service.Close()
+
+notifier, err := service.NotifierBuilder().DefaultEventID(1).Create()
+if err != nil {
+	log.Fatal(err)
+}
+defer notifier.Close()
+listener, err := service.ListenerBuilder().Create()
+if err != nil {
+	log.Fatal(err)
+}
+defer listener.Close()
+
+if _, err := notifier.Notify(); err != nil {
+	log.Fatal(err)
+}
+events, err := listener.TimedWait(time.Second)
+if err != nil {
+	log.Fatal(err)
+}
+for _, event := range events {
+	log.Printf("event %d arrived %d time(s)", event.ID, event.Count)
+}
+```
+
+`Listener.TryWait` never blocks and `Listener.BlockingWait` waits without a
+time limit. While a wait is pending, `Listener.Close` waits for it, so prefer a
+loop of `TimedWait` calls where the wait has to end on a condition.
 
 ## Contributing
 
