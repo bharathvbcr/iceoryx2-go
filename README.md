@@ -5,7 +5,9 @@ Go Language Binding for Eclipse iceoryx2™
 The package `iox2` wraps the iceoryx2 C API with cgo. Progress is tracked in
 [eclipse-iceoryx/iceoryx2#2104](https://github.com/eclipse-iceoryx/iceoryx2/issues/2104).
 
-> **Status:** early development. Only creating a `Node` is available so far.
+> **Status:** early development. Creating a `Node`, publish-subscribe
+> communication of bytes or fixed-size values and event notification are
+> available so far.
 
 ## Requirements
 
@@ -48,6 +50,12 @@ import (
 	iox2 "github.com/eclipse-iceoryx/iceoryx2-go"
 )
 
+// Reading has the memory layout of a C struct with the same fields.
+type Reading struct {
+	ID    uint32
+	Value float64
+}
+
 func main() {
 	node, err := iox2.NewNodeBuilder().Name("my-node").Create(iox2.ServiceTypeIpc)
 	if err != nil {
@@ -55,9 +63,77 @@ func main() {
 	}
 	defer node.Close()
 
-	log.Printf("created node %q", node.Name())
+	service, err := node.PublishSubscribe("Sensors/Reading").
+		Payload(iox2.FixedSizePayload[Reading]("Reading")).
+		OpenOrCreate()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer service.Close()
+
+	publisher, err := service.PublisherBuilder().Create()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer publisher.Close()
+	subscriber, err := service.SubscriberBuilder().Create()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer subscriber.Close()
+
+	if _, err := iox2.SendValue(publisher, Reading{ID: 1, Value: 2.5}); err != nil {
+		log.Fatal(err)
+	}
+	if reading, ok, err := iox2.ReceiveValue[Reading](subscriber); err != nil {
+		log.Fatal(err)
+	} else if ok {
+		log.Printf("received %+v", reading)
+	}
 }
 ```
+
+A service without `Payload` transmits byte slices of any length with
+`Publisher.Send` and `Subscriber.Receive`.
+
+### Events
+
+An event service wakes up other processes or goroutines without transmitting
+data. A `Notifier` sends event ids, a `Listener` waits for them:
+
+```go
+service, err := node.Event("Sensors/Reading/Ready").OpenOrCreate()
+if err != nil {
+	log.Fatal(err)
+}
+defer service.Close()
+
+notifier, err := service.NotifierBuilder().DefaultEventID(1).Create()
+if err != nil {
+	log.Fatal(err)
+}
+defer notifier.Close()
+listener, err := service.ListenerBuilder().Create()
+if err != nil {
+	log.Fatal(err)
+}
+defer listener.Close()
+
+if _, err := notifier.Notify(); err != nil {
+	log.Fatal(err)
+}
+events, err := listener.TimedWait(time.Second)
+if err != nil {
+	log.Fatal(err)
+}
+for _, event := range events {
+	log.Printf("event %d arrived %d time(s)", event.ID, event.Count)
+}
+```
+
+`Listener.TryWait` never blocks and `Listener.BlockingWait` waits without a
+time limit. While a wait is pending, `Listener.Close` waits for it, so prefer a
+loop of `TimedWait` calls where the wait has to end on a condition.
 
 ## Contributing
 
