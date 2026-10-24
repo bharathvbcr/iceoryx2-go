@@ -79,8 +79,16 @@ func (e NodeCreationFailure) Error() string {
 	}
 }
 
+// ErrInvalidSignalHandlingMode is returned when a [SignalHandlingMode] has a
+// value that is not defined by this package.
+var ErrInvalidSignalHandlingMode = errors.New("iox2: invalid signal handling mode")
+
+// ErrInvalidDuration is returned when a deadline or interval is zero or
+// negative.
+var ErrInvalidDuration = errors.New("iox2: duration must be positive")
+
 // ErrClosed is returned when a node, service, publisher, subscriber, sample,
-// notifier or listener is used after it was closed.
+// notifier, listener, wait set or guard is used after it was closed.
 var ErrClosed = errors.New("iox2: use of closed object")
 
 // PubSubServiceError describes why a publish-subscribe service could not be
@@ -427,4 +435,77 @@ func (e ListenerWaitError) Error() string {
 		return "iox2: " + C.GoString(C.iox2_listener_wait_error_string(uint32(e)))
 	}
 	return fmt.Sprintf("iox2: unknown listener wait error %d", int(e))
+}
+
+// WaitSetCreateError describes why a [WaitSet] could not be created.
+type WaitSetCreateError int
+
+// The reasons for which creating a [WaitSet] can fail.
+const (
+	// WaitSetCreateErrorInternalError means iceoryx2 hit an internal error.
+	WaitSetCreateErrorInternalError WaitSetCreateError = C.iox2_waitset_create_error_e_INTERNAL_ERROR
+	// WaitSetCreateErrorInsufficientResources means the system lacks the
+	// resources for the wait set.
+	WaitSetCreateErrorInsufficientResources WaitSetCreateError = C.iox2_waitset_create_error_e_INSUFFICIENT_RESOURCES
+)
+
+// Error implements the error interface.
+func (e WaitSetCreateError) Error() string {
+	if e >= C.iox2_waitset_create_error_e_INTERNAL_ERROR &&
+		e <= C.iox2_waitset_create_error_e_INSUFFICIENT_RESOURCES {
+		return "iox2: " + C.GoString(C.iox2_waitset_create_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown wait set creation error %d", int(e))
+}
+
+// WaitSetAttachmentError describes why something could not be attached to a
+// [WaitSet].
+type WaitSetAttachmentError int
+
+// The reasons for which attaching can fail.
+const (
+	// WaitSetAttachmentErrorInsufficientCapacity means the wait set holds as
+	// many attachments as its capacity allows.
+	WaitSetAttachmentErrorInsufficientCapacity WaitSetAttachmentError = C.iox2_waitset_attachment_error_e_INSUFFICIENT_CAPACITY
+	// WaitSetAttachmentErrorAlreadyAttached means the source is attached to the
+	// wait set already.
+	WaitSetAttachmentErrorAlreadyAttached WaitSetAttachmentError = C.iox2_waitset_attachment_error_e_ALREADY_ATTACHED
+	// WaitSetAttachmentErrorInternalError means iceoryx2 hit an internal error.
+	WaitSetAttachmentErrorInternalError WaitSetAttachmentError = C.iox2_waitset_attachment_error_e_INTERNAL_ERROR
+	// WaitSetAttachmentErrorInsufficientResources means the system lacks the
+	// resources for another attachment.
+	WaitSetAttachmentErrorInsufficientResources WaitSetAttachmentError = C.iox2_waitset_attachment_error_e_INSUFFICIENT_RESOURCES
+)
+
+// Error implements the error interface.
+func (e WaitSetAttachmentError) Error() string {
+	if e >= C.iox2_waitset_attachment_error_e_INSUFFICIENT_CAPACITY &&
+		e <= C.iox2_waitset_attachment_error_e_INSUFFICIENT_RESOURCES {
+		return "iox2: " + C.GoString(C.iox2_waitset_attachment_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown wait set attachment error %d", int(e))
+}
+
+// WaitSetRunError describes why a wait call of a [WaitSet] failed.
+type WaitSetRunError int
+
+// The reasons for which a wait call can fail.
+const (
+	// WaitSetRunErrorInsufficientPermissions means the process may not wait on
+	// the attachments.
+	WaitSetRunErrorInsufficientPermissions WaitSetRunError = C.iox2_waitset_run_error_e_INSUFFICIENT_PERMISSIONS
+	// WaitSetRunErrorInternalError means iceoryx2 hit an internal error.
+	WaitSetRunErrorInternalError WaitSetRunError = C.iox2_waitset_run_error_e_INTERNAL_ERROR
+	// WaitSetRunErrorNoAttachments means nothing is attached, so waiting would
+	// never end.
+	WaitSetRunErrorNoAttachments WaitSetRunError = C.iox2_waitset_run_error_e_NO_ATTACHMENTS
+)
+
+// Error implements the error interface.
+func (e WaitSetRunError) Error() string {
+	if e >= C.iox2_waitset_run_error_e_INSUFFICIENT_PERMISSIONS &&
+		e <= C.iox2_waitset_run_error_e_INTERRUPT {
+		return "iox2: " + C.GoString(C.iox2_waitset_run_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown wait set run error %d", int(e))
 }

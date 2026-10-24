@@ -72,7 +72,11 @@ func (b *ListenerBuilder) Create() (*Listener, error) {
 // pending, all other methods, including Close, wait for it.
 type Listener struct {
 	mu     sync.Mutex
-	handle C.iox2_listener_h // nil once closed
+	handle C.iox2_listener_h // nil once released
+	// closed is set by Close. The handle is released at that moment, or later
+	// if a [WaitSet] still holds the listener, see pin.
+	closed bool
+	pins   int
 }
 
 // TryWait returns the events that arrived since the last wait. It returns
@@ -114,7 +118,7 @@ func (l *Listener) wait(
 ) ([]Event, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.handle == nil {
+	if l.closed {
 		return nil, ErrClosed
 	}
 
@@ -139,12 +143,40 @@ func iox2GoListenerCallback(id *C.iox2_event_id_t, count C.uint64_t, ctx unsafe.
 }
 
 // Close releases the listener. Calling Close more than once is safe and has no
-// further effect.
+// further effect. A listener that is attached to a [WaitSet] is released when
+// the last guard of it is closed, but is unusable from now on.
 func (l *Listener) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if l.handle != nil {
+	l.closed = true
+	l.releaseIfUnused()
+}
+
+// pin keeps the native listener alive after Close, for as long as the file
+// descriptor of the listener is registered in a WaitSet. It reports false if the
+// listener is closed.
+func (l *Listener) pin() (fd C.iox2_file_descriptor_ptr, ok bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed {
+		return nil, false
+	}
+	l.pins++
+	return C.iox2_listener_get_file_descriptor(&l.handle), true
+}
+
+func (l *Listener) unpin() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.pins--
+	l.releaseIfUnused()
+}
+
+// releaseIfUnused expects mu to be held.
+func (l *Listener) releaseIfUnused() {
+	if l.closed && l.pins == 0 && l.handle != nil {
 		C.iox2_listener_drop(l.handle)
 		l.handle = nil
 	}
