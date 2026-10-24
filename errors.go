@@ -79,8 +79,8 @@ func (e NodeCreationFailure) Error() string {
 	}
 }
 
-// ErrClosed is returned when a node, service, publisher, subscriber or sample
-// is used after it was closed.
+// ErrClosed is returned when a node, service, publisher, subscriber, sample,
+// notifier or listener is used after it was closed.
 var ErrClosed = errors.New("iox2: use of closed object")
 
 // PubSubServiceError describes why a publish-subscribe service could not be
@@ -274,4 +274,157 @@ func (e ReceiveError) Error() string {
 		return "iox2: " + C.GoString(C.iox2_receive_error_string(uint32(e)))
 	}
 	return fmt.Sprintf("iox2: unknown receive error %d", int(e))
+}
+
+// EventServiceError describes why an event service could not be opened or
+// created. The values are the ones a caller commonly distinguishes, every other
+// reason is reported with the message of the C API.
+type EventServiceError int
+
+// The reasons for which opening or creating an event service fails that
+// callers commonly react to.
+const (
+	// EventServiceErrorDoesNotExist means [EventServiceBuilder.Open] found no
+	// service of that name.
+	EventServiceErrorDoesNotExist EventServiceError = C.iox2_event_open_or_create_error_e_O_DOES_NOT_EXIST
+	// EventServiceErrorInsufficientPermissions means the process may not open
+	// the service.
+	EventServiceErrorInsufficientPermissions EventServiceError = C.iox2_event_open_or_create_error_e_O_INSUFFICIENT_PERMISSIONS
+	// EventServiceErrorIncompatibleMessagingPattern means a service of that
+	// name exists, but it is not an event service.
+	EventServiceErrorIncompatibleMessagingPattern EventServiceError = C.iox2_event_open_or_create_error_e_O_INCOMPATIBLE_MESSAGING_PATTERN
+	// EventServiceErrorDoesNotSupportRequestedAmountOfNotifiers means the
+	// existing service allows fewer notifiers than requested.
+	EventServiceErrorDoesNotSupportRequestedAmountOfNotifiers EventServiceError = C.iox2_event_open_or_create_error_e_O_DOES_NOT_SUPPORT_REQUESTED_AMOUNT_OF_NOTIFIERS
+	// EventServiceErrorDoesNotSupportRequestedAmountOfListeners means the
+	// existing service allows fewer listeners than requested.
+	EventServiceErrorDoesNotSupportRequestedAmountOfListeners EventServiceError = C.iox2_event_open_or_create_error_e_O_DOES_NOT_SUPPORT_REQUESTED_AMOUNT_OF_LISTENERS
+	// EventServiceErrorDoesNotSupportRequestedMaxEventID means the existing
+	// service has a smaller maximum event id than requested.
+	EventServiceErrorDoesNotSupportRequestedMaxEventID EventServiceError = C.iox2_event_open_or_create_error_e_O_DOES_NOT_SUPPORT_REQUESTED_MAX_EVENT_ID
+	// EventServiceErrorAlreadyExists means [EventServiceBuilder.Create] found a
+	// service of that name.
+	EventServiceErrorAlreadyExists EventServiceError = C.iox2_event_open_or_create_error_e_C_ALREADY_EXISTS
+	// EventServiceErrorEventIDExceedsMaxSupportedValue means the maximum event
+	// id requested for a new service is larger than iceoryx2 supports.
+	EventServiceErrorEventIDExceedsMaxSupportedValue EventServiceError = C.iox2_event_open_or_create_error_e_C_EVENT_ID_EXCEEDS_MAX_SUPPORTED_VALUE
+)
+
+// Error implements the error interface.
+func (e EventServiceError) Error() string {
+	if e >= C.iox2_event_open_or_create_error_e_O_DOES_NOT_EXIST &&
+		e <= C.iox2_event_open_or_create_error_e_C_UNABLE_TO_GENERATE_UNIQUE_SERVICE_ID {
+		return "iox2: " + C.GoString(C.iox2_event_open_or_create_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown event service error %d", int(e))
+}
+
+// NotifierCreateError describes why a [Notifier] could not be created.
+type NotifierCreateError int
+
+// The reasons for which creating a [Notifier] can fail.
+const (
+	// NotifierCreateErrorExceedsMaxSupportedNotifiers means the service already
+	// has as many notifiers as it supports.
+	NotifierCreateErrorExceedsMaxSupportedNotifiers NotifierCreateError = C.iox2_notifier_create_error_e_EXCEEDS_MAX_SUPPORTED_NOTIFIERS
+	// NotifierCreateErrorFailedToDeployThreadSafetyPolicy means the thread
+	// safety policy of the port could not be set up.
+	NotifierCreateErrorFailedToDeployThreadSafetyPolicy NotifierCreateError = C.iox2_notifier_create_error_e_FAILED_TO_DEPLOY_THREAD_SAFETY_POLICY
+	// NotifierCreateErrorUnableToCreatePortTag means the tag that marks the
+	// port as alive could not be created.
+	NotifierCreateErrorUnableToCreatePortTag NotifierCreateError = C.iox2_notifier_create_error_e_UNABLE_TO_CREATE_PORT_TAG
+	// NotifierCreateErrorUnableToGenerateUniqueNotifierID means no unique
+	// notifier id could be generated.
+	NotifierCreateErrorUnableToGenerateUniqueNotifierID NotifierCreateError = C.iox2_notifier_create_error_e_UNABLE_TO_GENERATE_UNIQUE_NOTIFIER_ID
+)
+
+// Error implements the error interface.
+func (e NotifierCreateError) Error() string {
+	if e >= C.iox2_notifier_create_error_e_EXCEEDS_MAX_SUPPORTED_NOTIFIERS &&
+		e <= C.iox2_notifier_create_error_e_UNABLE_TO_GENERATE_UNIQUE_NOTIFIER_ID {
+		return "iox2: " + C.GoString(C.iox2_notifier_create_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown notifier creation error %d", int(e))
+}
+
+// ListenerCreateError describes why a [Listener] could not be created.
+type ListenerCreateError int
+
+// The reasons for which creating a [Listener] can fail.
+const (
+	// ListenerCreateErrorExceedsMaxSupportedListeners means the service already
+	// has as many listeners as it supports.
+	ListenerCreateErrorExceedsMaxSupportedListeners ListenerCreateError = C.iox2_listener_create_error_e_EXCEEDS_MAX_SUPPORTED_LISTENERS
+	// ListenerCreateErrorResourceCreationFailed means the resources of the
+	// listener, for example its socket, could not be created.
+	ListenerCreateErrorResourceCreationFailed ListenerCreateError = C.iox2_listener_create_error_e_RESOURCE_CREATION_FAILED
+	// ListenerCreateErrorFailedToDeployThreadSafetyPolicy means the thread
+	// safety policy of the port could not be set up.
+	ListenerCreateErrorFailedToDeployThreadSafetyPolicy ListenerCreateError = C.iox2_listener_create_error_e_FAILED_TO_DEPLOY_THREAD_SAFETY_POLICY
+	// ListenerCreateErrorUnableToCreatePortTag means the tag that marks the
+	// port as alive could not be created.
+	ListenerCreateErrorUnableToCreatePortTag ListenerCreateError = C.iox2_listener_create_error_e_UNABLE_TO_CREATE_PORT_TAG
+	// ListenerCreateErrorUnableToGenerateUniqueListenerID means no unique
+	// listener id could be generated.
+	ListenerCreateErrorUnableToGenerateUniqueListenerID ListenerCreateError = C.iox2_listener_create_error_e_UNABLE_TO_GENERATE_UNIQUE_LISTENER_ID
+)
+
+// Error implements the error interface.
+func (e ListenerCreateError) Error() string {
+	if e >= C.iox2_listener_create_error_e_EXCEEDS_MAX_SUPPORTED_LISTENERS &&
+		e <= C.iox2_listener_create_error_e_UNABLE_TO_GENERATE_UNIQUE_LISTENER_ID {
+		return "iox2: " + C.GoString(C.iox2_listener_create_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown listener creation error %d", int(e))
+}
+
+// NotifyError describes why a [Notifier] could not notify the listeners.
+type NotifyError int
+
+// The reasons for which notifying can fail.
+const (
+	// NotifyErrorEventIDOutOfBounds means the event id exceeds the maximum of
+	// the service.
+	NotifyErrorEventIDOutOfBounds NotifyError = C.iox2_notifier_notify_error_e_EVENT_ID_OUT_OF_BOUNDS
+	// NotifyErrorMissedDeadline means the notification came later than the
+	// deadline of the service allows.
+	NotifyErrorMissedDeadline NotifyError = C.iox2_notifier_notify_error_e_MISSED_DEADLINE
+	// NotifyErrorUnableToAcquireElapsedTime means the time since the last
+	// notification could not be determined for the deadline check.
+	NotifyErrorUnableToAcquireElapsedTime NotifyError = C.iox2_notifier_notify_error_e_UNABLE_TO_ACQUIRE_ELAPSED_TIME
+	// NotifyErrorInvalidListenerKey means a listener of the service is in an
+	// inconsistent state.
+	NotifyErrorInvalidListenerKey NotifyError = C.iox2_notifier_notify_error_e_INVALID_LISTENER_KEY
+)
+
+// Error implements the error interface.
+func (e NotifyError) Error() string {
+	if e >= C.iox2_notifier_notify_error_e_EVENT_ID_OUT_OF_BOUNDS &&
+		e <= C.iox2_notifier_notify_error_e_INVALID_LISTENER_KEY {
+		return "iox2: " + C.GoString(C.iox2_notifier_notify_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown notify error %d", int(e))
+}
+
+// ListenerWaitError describes why a [Listener] failed to wait for events.
+type ListenerWaitError int
+
+// The reasons for which waiting can fail.
+const (
+	// ListenerWaitErrorContractViolation means the listener was used against
+	// its contract, for example it is accessed from two places at once.
+	ListenerWaitErrorContractViolation ListenerWaitError = C.iox2_listener_wait_error_e_CONTRACT_VIOLATION
+	// ListenerWaitErrorInternalFailure means iceoryx2 hit an internal error.
+	ListenerWaitErrorInternalFailure ListenerWaitError = C.iox2_listener_wait_error_e_INTERNAL_FAILURE
+	// ListenerWaitErrorInterruptSignal means a signal interrupted the wait.
+	ListenerWaitErrorInterruptSignal ListenerWaitError = C.iox2_listener_wait_error_e_INTERRUPT_SIGNAL
+)
+
+// Error implements the error interface.
+func (e ListenerWaitError) Error() string {
+	if e >= C.iox2_listener_wait_error_e_CONTRACT_VIOLATION &&
+		e <= C.iox2_listener_wait_error_e_INTERRUPT_SIGNAL {
+		return "iox2: " + C.GoString(C.iox2_listener_wait_error_string(uint32(e)))
+	}
+	return fmt.Sprintf("iox2: unknown listener wait error %d", int(e))
 }
