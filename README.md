@@ -6,8 +6,8 @@ The package `iox2` wraps the iceoryx2 C API with cgo. Progress is tracked in
 [eclipse-iceoryx/iceoryx2#2104](https://github.com/eclipse-iceoryx/iceoryx2/issues/2104).
 
 > **Status:** early development. Creating a `Node`, publish-subscribe
-> communication of bytes or fixed-size values and event notification are
-> available so far.
+> communication of bytes or fixed-size values, event notification and the
+> `WaitSet` are available so far.
 
 ## Requirements
 
@@ -134,6 +134,45 @@ for _, event := range events {
 `Listener.TryWait` never blocks and `Listener.BlockingWait` waits without a
 time limit. While a wait is pending, `Listener.Close` waits for it, so prefer a
 loop of `TimedWait` calls where the wait has to end on a condition.
+
+### WaitSet
+
+A `WaitSet` waits for several listeners and timers with one call:
+
+```go
+waitSet, err := iox2.NewWaitSetBuilder().Create(iox2.ServiceTypeIpc)
+if err != nil {
+	log.Fatal(err)
+}
+defer waitSet.Close()
+
+guard, err := waitSet.AttachNotification(listener)
+if err != nil {
+	log.Fatal(err)
+}
+defer guard.Close()
+tick, err := waitSet.AttachInterval(time.Second)
+if err != nil {
+	log.Fatal(err)
+}
+defer tick.Close()
+
+_, err = waitSet.WaitAndProcess(func(id *iox2.AttachmentID) iox2.Progression {
+	switch {
+	case id.HasEventFrom(guard):
+		events, _ := listener.TryWait() // consume the events, or the wait set reports them again
+		log.Printf("events: %v", events)
+	case id.HasEventFrom(tick):
+		log.Print("tick")
+	}
+	return iox2.ProgressionContinue
+})
+```
+
+A wait set does not register signal handlers by default, because the Go runtime
+owns them. To end a `WaitAndProcess` loop from another goroutine, notify an
+attached listener and return `iox2.ProgressionStop` for it. A handler must not
+call methods of the wait set or its guards.
 
 ## Contributing
 
